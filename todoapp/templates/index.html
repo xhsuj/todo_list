@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"> <!--lang specifize the language of the context of elements,dir regulate the direciton of the context: from left to right or...-->
+  <head>
+    <meta charset="utf-8"> <!--provide metadata for the html file which would be translated by browsers -->
+    <title>必做</title>
+    <style>
+      .hidden{
+        display: none;
+      }
+      ul
+      {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        width:300px;
+      }
+      li
+      {
+        clear: both;
+      }
+      li button
+      {
+        -webkit-appearance: none;
+        border: none;
+        outline: none;
+        color: red;
+        float: right;
+        cursor: pointer;
+        font-size: 20px;
+      }
+      .list-wrapper,.todos-wrapper
+      {
+        display: inline-block;
+        vertical-align: top;
+      }
+    </style> <!--hidden is a boolean attrabute which can beused to specifize that an element is not yet, or is no longer, relevant.
+      Browsers should not display elements that have the hidden attribute specified.
+      The hidden attribute can also be used to keep a user from seeing an element until some other condition has been met
+
+      ul:unordered list; li list Item; clear both: get rid of the former floating patterns; -webkit-appearance:
+    -->
+  </head>
+  <body> <!--The method attribute specifies how to send form-data (the form-data is sent to the page specified in the action attribute).
+The form-data can be sent as URL variables (with method="get") or as HTTP post transaction (with method="post").
+'action' attribute(URL) Specifies where to send the form-data when a form is submitted
+-->
+  <div class="list-wrapper">
+    <h4>List</h4>
+    <form id="form2" method="post", action="/todolists/create">
+      <input type="text" id="name" name="name" />
+      <input type="submit" value="Create" /><!--‘value’ specifise the value of an input element ,string-->
+    </form>
+    <ul id="lists">
+      {% for list in lists %}
+      <li>
+        <input class="whole-completed" data-id="{{list.id}}" type="checkbox" {% if list.completed %} checked {% endif %}/>
+        <a href="/lists/{{list.id}}">
+          {{list.name}}
+        </a>
+        <button class="whole-delete"data-id="{{list.id}}">&cross;</button>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="todos-wrapper">
+    <h4 id="{{active_list.id}}" >{{active_list.name}}</h4>
+    <form id="form" method="post", action="/todos/create">
+      <input type="text" id="description" data-id="{{active_list.id}}" name="description" />
+      <input type="submit" value="Create"/><!--‘value’ specifise the value of an input element ,string-->
+    </form>
+    <div id="error" class="hidden">Something went wrong !</div>
+    <ul  id="todos">
+      {% for todo in todos %}  <!--jinje2 function like for loop to repeatedly show the data in html-->
+      <li>
+          <input class="check-completed" data-id="{{todo.id}}" type="checkbox" {% if todo.completed %} checked {% endif %}/>
+          {{todo.description}}
+          <button class="check-delete" data-id="{{todo.id}}">&cross;</button>
+      </li> <!--The data-* attributes is used to store custom data private to the page or application.-->
+      {% endfor %}   <!-- event object e.preventDefault prevent the default refreshing operation;-->
+    </ul>
+  </div>
+    <script>
+    const checkboxes= document.querySelectorAll('.whole-completed');
+    const checkboxs= document.querySelectorAll('.check-completed');
+    var active=(document.getElementById('{{active_list.id}}').getAttribute('id')) || 0;
+    for(let i=0;i< checkboxs.length;i++){
+      const checkbox=checkboxs[i];
+      checkbox.onchange=function(e){
+        console.log('event',e);
+        var count=0;
+        for (let j=0;j<checkboxs.length;j++)
+        {
+            if(checkboxs[j].checked)
+            {
+              count++;
+            }
+        }
+        const newCompleted=e.target.checked; //The target property of the Event interface is a reference to the object onto which the event was dispatched
+        const todoId=e.target.dataset['id'];
+        fetch('/todos/'+ todoId +'/set-completed',{
+          method: 'POST',
+          body: JSON.stringify({
+            'completed': newCompleted,
+            'count': count
+          }),
+          headers:{
+              'Content-Type':'application/json'
+          }
+        })
+        .then(function(){
+          for(let i=0;i<checkboxes.length;i++)
+            {
+              currId=checkboxes[i].getAttribute('data-id');
+              if(e.target.checked==false && currId==active && (count<checkboxs.length))
+              {
+                checkboxes[i].checked=false;
+              }
+              else if(e.target.checked==true && count==checkboxs.length && currId==active)
+              {
+                checkboxes[i].checked=true;
+              }
+            }
+        })
+        .then(function(jsonResponse) {
+          document.getElementById('error').className = 'hidden';
+        })
+        .catch(function() {
+          document.getElementById('error').className = '';
+        })
+      }
+    }
+
+
+    for(let i=0;i< checkboxes.length;i++){
+      const checkbox=checkboxes[i];
+      checkbox.onchange=function(e){
+        console.log('event',e);
+          const state=e.target.checked;
+          var count=0;
+          for (let k=0;k<checkboxs.length;k++)
+          {
+            if(checkboxs[k].checked)
+            {
+                count++;
+            }
+          }
+            const listId3=e.target.dataset['id'];
+            fetch('/lists/'+ listId3 +'/list-completed',{
+              method: 'POST',
+              body: JSON.stringify({
+                'completed': e.target.checked,
+                'count': count
+              }),
+              headers:{
+                  'Content-Type':'application/json'
+              }
+            })
+            .then(function(response){
+              document.getElementById('error').className = 'hidden';
+              if(e.target.dataset['id'] == active)
+              {
+                if((count==checkboxs.length && state==false) || (count<checkboxs.length && state==true))
+                  for (let i=0;i<checkboxs.length;i++)
+                  {
+                    checkboxs[i].checked=state;
+                  }
+              }
+            })
+            .catch(function() {
+              document.getElementById('error').className = '';
+            })
+    }
+  }
+      document.getElementById('form').onsubmit =function(e){ //The onsubmit attribute fires when a form is submitted.
+          e.preventDefault();
+          fetch('/todos/create',{
+            method : 'POST',
+            body : JSON.stringify({
+              'description': document.getElementById('description').value,
+              'id': document.getElementById('description').getAttribute('data-id')
+            }),
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+          .then(function(response){
+            return response.json();
+          })
+          .then(function(jsonResponse){
+            const liItem = document.createElement('LI');
+            const checkbox = document.createElement('input');
+            checkbox.className = 'check-completed';
+            checkbox.type = 'checkbox';
+            checkbox.setAttribute('data-id', jsonResponse.id);
+            liItem.appendChild(checkbox);
+            const text=document.createTextNode(' '+jsonResponse.descrption);
+            liItem.appendChild(text);
+            const but=document.createElement('button');
+            but.className='check-delete';
+            but.setAttribute('data-id',jsonResponse.id);
+            but.innerHTML='&cross;';
+            liItem.appendChild(but);
+            document.getElementById('todos').appendChild(liItem);
+            document.getElementById('error').className = 'hidden';
+            javascript:location.reload();
+          })
+          .catch(function(){
+            console.error('Error occurred');
+            document.getElementById('error').className='';
+          })
+      }
+
+      document.getElementById('form2').onsubmit =function(e){ //The onsubmit attribute fires when a form is submitted.
+          e.preventDefault();
+          fetch('/todolists/create',{
+            method : 'POST',
+            body : JSON.stringify({
+              'name': document.getElementById('name').value,
+              'id':''
+            }),
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+          .then(function(response){
+            return response.json();
+          })
+          .then(function(jsonResponse){
+            const list = document.createElement('LIST');
+            const checkbox = document.createElement('input');
+            checkbox.className = 'whole-completed';
+            checkbox.type = 'checkbox';
+            checkbox.setAttribute('data-id', jsonResponse.id);
+            list.appendChild(checkbox);
+            const pis=document.createElement('a');
+            pis.setAttribute('href',"/lists/"+jsonResponse.id);
+            pis.value=(' '+jsonResponse.name);
+            list.appendChild(pis);
+            const but=document.createElement('button');
+            but.setAttribute('data-id',jsonResponse.id);
+            but.innerHTML='&cross;';
+            list.appendChild(but);
+            document.getElementById('lists').appendChild(list);
+            document.getElementById('error').className = 'hidden';
+            javascript:location.reload();
+          })
+          .catch(function(){
+            console.error('Error occurred');
+            document.getElementById('error').className='';
+          })
+      }
+      const deletions=document.querySelectorAll('.check-delete');
+      for (let i=0;i < deletions.length;i++)
+      {
+        const btn=deletions[i];
+        btn.onclick=function(e)
+        {
+          const todoIdd=e.target.dataset['id'];
+          fetch('/todos/'+todoIdd+'/delete',{
+            method: 'DELETE'
+          })
+          .then(function() {
+            const item = e.target.parentElement;
+            item.remove();
+          })
+        }
+      }
+      const delets=document.querySelectorAll('.whole-delete');
+      for (let i=0;i < delets.length;i++)
+      {
+        const btn=delets[i];
+        btn.onclick=function(e)
+        { console.log('event',e);
+          const listid=e.target.dataset['id'];
+          fetch('/todolists/'+listid+'/delete',{
+            method: 'DELETE'
+          })
+          .then(function() {
+            const item = e.target.parentElement;
+            item.remove();
+            if(listid==active)
+            {
+              document.getElementById('todos').innerHTML="";
+            }
+          })
+        }
+      }
+    </script>
+  </body>
+</html>
